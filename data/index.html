@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paltoc Healthcare Center</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <h1>PALTOC HEALTHCARE CENTER</h1>
+
+  <div class="container">
+    <div class="sensor-section">
+      <i class="fas fa-thermometer-half icon"></i>
+      <p>Temperature: <span id="dhttemp"></span>°Celsius</p>
+    </div>
+
+    <div class="sensor-section">
+      <i class="fas fa-wind icon"></i>
+      <p>Air Quality: <span id="air_quality"></span>PPM</p>
+    </div>
+
+    <div class="sensor-section">
+      <i class="fas fa-tint icon"></i>
+      <p>Humidity: <span id="humidity"></span>%</p>
+    </div>
+
+    <div class="sensor-section">
+      <i class="fas fa-cloud icon"></i>
+      <p>PM1: <span id="pm1"></span>µg/m3</p>
+    </div>
+
+    <div class="sensor-section">
+      <i class="fas fa-smog icon"></i>
+      <p>PM2.5: <span id="pm2_5"></span>µg/m3</p>
+    </div>
+
+    <div class="sensor-section">
+      <i class="fas fa-sun icon"></i>
+      <p>PM10: <span id="pm10"></span>µg/m3</p>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
