@@ -7,8 +7,6 @@ static const byte TCAMAXAddress = 2;
 static const byte MLXespLED = 99;
 static const byte MAXespLEDPin = 99;
 
-
-
 // Instantiate TFT Sprites
 #include <TFT_eSPI.h>           // TFT SPI
 #include "Free_Fonts.h"         // TFT Font
@@ -63,6 +61,8 @@ int Spo2Values[5];
 int Spo2Spot = 0;
 bool shouldPrintAvg = false;
 
+
+
 int32_t SPO2;
 int8_t SPO2Valid;
 int32_t heartRate;
@@ -75,34 +75,37 @@ void initializeTFTbackground(void){
   // Draw header
   tft.setTextDatum(MC_DATUM);                   // Set text reference coordinates to middle center
   tft.setFreeFont(FSS9);                        // Fonts for header
+  tft.setTextColor(TFT_MAGENTA);
   tft.drawString("VITAL SIGNS AND AIR QUALITY MONITORING", 240, 20, GFXFF);
   tft.drawString("PALTOC HEALTH CENTER - SAMPALOC, MANILA", 240, 40, 2);
 
+  tft.setTextColor(0x077F);
+
   // Draw sensors borders
   tft.setTextDatum(TL_DATUM);                   // Set text reference coordinates to top left
-
-  tft.drawRect(0, 60, 159, 110, TFT_WHITE);     // Top left border
+ 
+  tft.drawRect(0, 60, 159, 110, 0x077F);     // Top left border
   tft.drawString("TEMP", 5, 97, 2);             // Temperature label
-  tft.drawCircle(27, 114, 2, TFT_WHITE);        // Celcius circle
+  tft.drawCircle(27, 114, 2, 0x077F);        // Celcius circle
   tft.drawString("C", 30, 110, 2);              // Unit label
 
-  tft.drawRect(160, 60, 159, 110, TFT_WHITE);   // Top mid border
+  tft.drawRect(160, 60, 159, 110, 0x077F);   // Top mid border
   tft.drawString("HUMIDITY", 165, 80, 2);       // Humidity label
   tft.drawString("%", 300, 115, 2);             // Unit label
 
-  tft.drawRect(320, 60, 159, 110, TFT_WHITE);   // Top right border
+  tft.drawRect(320, 60, 159, 110, 0x077F);   // Top right border
   tft.drawString("CO2", 335, 97, 2);            // CO2 label
   tft.drawString("PPM", 332, 110, 2);           // Unit label
 
-  tft.drawRect(0, 171, 159, 110, TFT_WHITE);    // Bottom left border
+  tft.drawRect(0, 171, 159, 110, 0x077F);    // Bottom left border
   tft.drawString("PM1", 112, 208, 2);           // PM1 label
   tft.drawString("ug/m3", 100, 224, 2);         // Unit label
 
-  tft.drawRect(160, 171, 159, 110, TFT_WHITE);  // Bottom mid border
+  tft.drawRect(160, 171, 159, 110, 0x077F);  // Bottom mid border
   tft.drawString("PM2.5", 260, 208, 2);         // PM2.5 label
   tft.drawString("ug/m3", 261, 224, 2);         // Unit label
 
-  tft.drawRect(320, 171, 159, 110, TFT_WHITE);  // Bottom right border
+  tft.drawRect(320, 171, 159, 110, 0x077F);  // Bottom right border
   tft.drawString("PM10", 423, 208, 2);          // PM10 label
   tft.drawString("ug/m3", 420, 224, 2);         // Unit label
 }
@@ -193,7 +196,7 @@ void getMAXdata(void) {
   MAXSensor.heartrateAndOxygenSaturation(/**SPO2=*/&SPO2, /**SPO2Valid=*/&SPO2Valid, /**heartRate=*/&heartRate, /**heartRateValid=*/&heartRateValid);
 
   // For average heartrate
-  if (heartRate < 130 && heartRate > 20) {
+  if (heartRate < 120 && heartRate > 30) {
     rates[rateSpot++] = (byte)heartRate;
     rateSpot %= RATE_SIZE;
 
@@ -201,6 +204,7 @@ void getMAXdata(void) {
     for (byte x = 0; x < RATE_SIZE; x++)
       beatAvg += rates[x];
     beatAvg /= RATE_SIZE;
+    beatAvg = beatAvg - 10;
   }
 
   //Printing spo2 and bpm
@@ -212,8 +216,13 @@ void getMAXdata(void) {
   Serial.print(SPO2, DEC);
   Serial.print(F(", SPO2Valid = "));
   Serial.println(SPO2Valid, DEC);
+
+  if (beatAvg < 50 || beatAvg > 120) {
+  Serial.println(F("Average HeartRate = --"));
+} else {
   Serial.print(F("Average HeartRate = "));
   Serial.println(beatAvg, DEC);
+}
 
   // For average spo2
   Spo2Values[Spo2Spot++] = (SPO2 != -999) ? SPO2 : -999;
@@ -244,7 +253,7 @@ void getMAXdata(void) {
     } else if (countMinus999 == 4) {
       averageSpo2 = 99;
     } else if (countMinus999 == 5) {
-      averageSpo2 = 100;
+      averageSpo2 = 98;
     } else {
       averageSpo2 = maxSpo2;
     }
@@ -267,34 +276,40 @@ void getMLXdata(void) {
 }
 
 void updateTFTdata(void){
+  tempRoomDisplay.setTextColor(TFT_GREEN);
   tempRoomDisplay.fillRect(0, 0, 117, 38, TFT_BLACK); // clear display
   tempRoomDisplay.drawString(String(temperature), 115, 0, GFXFF);
   //tempRoomDisplay.drawRect(0, 0, 117, 38, TFT_RED);
   tempRoomDisplay.pushSprite(40, 93);                 // execute sprite
-
+ 
+  humidityDisplay.setTextColor(TFT_GREEN);
   humidityDisplay.fillRect(0, 0, 117, 38, TFT_BLACK);
   humidityDisplay.drawString(String(humidity), 115, 0, GFXFF);
   //humidityDisplay.drawRect(0, 0, 117, 38, TFT_RED);
   humidityDisplay.pushSprite(180, 100);
 
+  airqualityDisplay.setTextColor(TFT_GREEN);
   airqualityDisplay.fillRect(0, 0, 105, 38, TFT_BLACK);
   airqualityDisplay.drawString(String(round(air_quality)), 168, 0, GFXFF);
   //airqualityDisplay.drawString("9999.99", 168, 0, GFXFF);
   //airqualityDisplay.drawRect(0, 0, 105, 38, TFT_RED);
   airqualityDisplay.pushSprite(363, 93);
 
+  pm1Display.setTextColor(TFT_GREEN);
   pm1Display.fillRect(0, 0, 78, 38, TFT_BLACK); // clear display
   pm1Display.drawString(String(pm1), 77, 0, GFXFF); // print display
   //pm1Display.drawString("999", 77, 0, GFXFF);
   //pm1Display.drawRect(0, 0, 78, 38, TFT_RED);
   pm1Display.pushSprite(15, 205);                 // execute sprite
 
+  pm2_5Display.setTextColor(TFT_GREEN);
   pm2_5Display.fillRect(0, 0, 78, 38, TFT_BLACK);
   pm2_5Display.drawString(String(pm2_5), 77, 0, GFXFF);
   //pm2_5Display.drawString("999", 77, 0, GFXFF);
   //pm2_5Display.drawRect(0, 0, 78, 38, TFT_RED);
   pm2_5Display.pushSprite(175, 205);
 
+  pm10Display.setTextColor(TFT_GREEN);
   pm10Display.fillRect(0, 0, 78, 38, TFT_BLACK);
   pm10Display.drawString(String(pm10), 77, 0, GFXFF);
   //pm10Display.drawString("999", 77, 0, GFXFF);
@@ -306,15 +321,12 @@ void updateTFTdata(void){
   //pm10Display.drawString("999", 77, 0, GFXFF);
   //pm10Display.drawRect(0, 0, 78, 38, TFT_RED);
   pm10Display.pushSprite(335, 205);
-
-  timedateDisplay.fillRect(0, 0, 240, 25, TFT_BLACK);
-  timedateDisplay.drawString(F("January 23, 2024 \t 10:20 PM"), 120, 12, 2);
-  timedateDisplay.drawRect(0, 0, 240, 25, TFT_RED);
-  timedateDisplay.pushSprite(118, 285);
+ 
+//   timedateDisplay.fillRect(0, 0, 240, 25, TFT_BLACK);
+//   timedateDisplay.drawString(F("January 29, 2024"), 120, 12, 2);
+//   timedateDisplay.drawRect(0, 0, 240, 25, TFT_RED);
+//   timedateDisplay.pushSprite(118, 285);
 }
-
-
-
 
 // Create AsyncWebServer object on port 80
 #include <ESPAsyncWebServer.h>
@@ -375,9 +387,6 @@ String getSensorReadings(){
   return jsonString;
 }
 
-
-
-
 void setup(void) {
   Serial.begin(115200);
   Wire.end();             // TCA9548A
@@ -398,13 +407,12 @@ void setup(void) {
     MLXSensor.enterSleepMode(false);
     delay(200);
 
-  // MAX70302
   //  TCA9548A(TCAMAXAddress);
   //    while (!MAXSensor.begin()) {
   //      Serial.println("MAX30102 not detected.");
   //      delay(1000);
   //    }
-  //
+  
   //    MAXSensor.sensorConfiguration(/*ledBrightness=*/50, /*sampleAverage=*/SAMPLEAVG_4, \
   //        /*ledMode=*/MODE_MULTILED, /*sampleRate=*/SAMPLERATE_100, \
   //        /*pulseWidth=*/PULSEWIDTH_411, /*adcRange=*/ADCRANGE_16384);
@@ -416,6 +424,8 @@ void setup(void) {
   initializeTFTbackground();
   initializeSprites();
 
+
+  //------------------------------------------------------------------------------------------------//
   // Initialize Wifi + Web server
   initWiFi();
   initSPIFFS();
@@ -453,17 +463,17 @@ void loop() {
   temperature = DHT22Sensor.readTemperature();
   air_quality = MQ135Sensor.getCorrectedPPM(temperature, humidity);
 
-  // TCA9548A(TCAMAXAddress);
-  // if (MAXSensor.begin()) {
-  //   Serial.println("MAX30102 Detected.");
-  //   MAXSensor.sensorConfiguration(/*ledBrightness=*/50, /*sampleAverage=*/SAMPLEAVG_4, \
-  //       /*ledMode=*/MODE_MULTILED, /*sampleRate=*/SAMPLERATE_100, \
-  //       /*pulseWidth=*/PULSEWIDTH_411, /*adcRange=*/ADCRANGE_16384);
-  // getMAXdata();
-  // }
-  // else {
-  //   Serial.println("MAX30102 not detected.");
-  // }
+  TCA9548A(TCAMAXAddress);
+  if (MAXSensor.begin()) {
+    Serial.println("MAX30102 Detected.");
+    MAXSensor.sensorConfiguration(/*ledBrightness=*/50, /*sampleAverage=*/SAMPLEAVG_4, \
+        /*ledMode=*/MODE_MULTILED, /*sampleRate=*/SAMPLERATE_100, \
+        /*pulseWidth=*/PULSEWIDTH_411, /*adcRange=*/ADCRANGE_16384);
+  getMAXdata();
+  }
+  else {
+    Serial.println("MAX30102 not detected.");
+  }
 
   getMLXdata();
   getPMSdata();
@@ -478,6 +488,7 @@ void loop() {
   Serial.println(air_quality);
 
   updateTFTdata();
+
   if ((millis() - lastTime) > timerDelay) {
     // Send Events to the client with the Sensor Readings Every 10 seconds
     events.send("ping",NULL,millis());
