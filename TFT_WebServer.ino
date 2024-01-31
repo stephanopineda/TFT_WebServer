@@ -4,8 +4,20 @@ static const byte MQ135espPin = 35;
 static const byte TCAPMSAddress = 4;
 static const byte TCAMLXAddress = 3;
 static const byte TCAMAXAddress = 2;
-static const byte MLXespLED = 99;
-static const byte MAXespLEDPin = 99;
+static const byte MLXespLEDPin = 5;
+static const byte MAXespLEDPin = 18;
+const char* ssid = "Oreo Dog";
+const char* password = "Oreo20201029?";
+const char* roomSensorServer = "http://192.168.1.3:3000/room_sensor";
+
+// Time configuration
+#include "time.h"
+const char* ntpServer1 = "ntp.pagasa.dost.gov.ph";
+const char* ntpServer2 = "time.upd.edu.ph";
+const long  gmtOffset_sec = 28800;
+const int   daylightOffset_sec = 3600;
+struct tm timeinfo;
+char formatteddatetime[64] = "";
 
 // Instantiate TFT Sprites
 #include <TFT_eSPI.h>           // TFT SPI
@@ -49,7 +61,7 @@ unsigned int pm10 = 999;
 // MLX90614
 #include <DFRobot_MLX90614.h>
 DFRobot_MLX90614_I2C MLXSensor;
-float objectTemp, ambientTemp;
+float fingerTemp, ambientTemp;
 
 // MAX30102
 #include <DFRobot_MAX30102.h>
@@ -61,14 +73,56 @@ int Spo2Values[5];
 int Spo2Spot = 0;
 bool shouldPrintAvg = false;
 
-
-
 int32_t SPO2;
 int8_t SPO2Valid;
 int32_t heartRate;
 int8_t heartRateValid;
 int beatAvg;
 int averageSpo2;
+
+
+// Create AsyncWebServer object on port 80
+#include <ESPAsyncWebServer.h>
+AsyncWebServer server(80);
+
+// Create an Event Source on /events
+#include <AsyncTCP.h>
+AsyncEventSource events("/events");
+
+// Json Variable to Hold Sensor Readings
+#include <Arduino_JSON.h>
+JSONVar readings;
+
+// Timer variables
+unsigned long lastTime = 0;
+unsigned long timerDelay = 2000;
+
+// Initialize SPIFFS
+#include "SPIFFS.h"
+void initSPIFFS() {
+  if (!SPIFFS.begin()) {
+    Serial.println("An error has occurred while mounting SPIFFS");
+  } else {
+    Serial.println("SPIFFS mounted successfully");
+  }
+}
+
+// Initialize WiFi
+#include <WiFi.h>
+void initWiFi() {
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  Serial.println("Connecting to WiFi");
+  while(WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.print("Connected to WiFi network with IP Address: ");
+  Serial.println(WiFi.localIP());
+}
+
+#include <HTTPClient.h>
 
 
 void initializeTFTbackground(void){
@@ -140,7 +194,7 @@ void initializeSprites(void){
   pm10Display.setTextDatum(TR_DATUM);
   pm10Display.setFreeFont(FF24);
 
-  timedateDisplay.createSprite(240, 25);
+  timedateDisplay.createSprite(214, 15);
   timedateDisplay.setTextDatum(MC_DATUM);
 }
 
@@ -218,11 +272,12 @@ void getMAXdata(void) {
   Serial.println(SPO2Valid, DEC);
 
   if (beatAvg < 50 || beatAvg > 120) {
-  Serial.println(F("Average HeartRate = --"));
-} else {
-  Serial.print(F("Average HeartRate = "));
-  Serial.println(beatAvg, DEC);
-}
+    Serial.println(F("Average HeartRate = --"));
+  } 
+  else {
+    Serial.print(F("Average HeartRate = "));
+    Serial.println(beatAvg, DEC);
+  }
 
   // For average spo2
   Spo2Values[Spo2Spot++] = (SPO2 != -999) ? SPO2 : -999;
@@ -268,11 +323,11 @@ void getMLXdata(void) {
   // 2 - Body and Ambient Temperature
   TCA9548A(TCAMLXAddress);
   ambientTemp = MLXSensor.getAmbientTempCelsius();
-  objectTemp = MLXSensor.getObjectTempCelsius();
+  fingerTemp = MLXSensor.getObjectTempCelsius();
 
   //Printing body and ambient temp
   Serial.print("Ambient celsius : "); Serial.print(ambientTemp); Serial.println(" °C");
-  Serial.print("Object celsius : ");  Serial.print(objectTemp);  Serial.println(" °C");
+  Serial.print("Object celsius : ");  Serial.print(fingerTemp);  Serial.println(" °C");
 }
 
 void updateTFTdata(void){
@@ -322,58 +377,13 @@ void updateTFTdata(void){
   //pm10Display.drawRect(0, 0, 78, 38, TFT_RED);
   pm10Display.pushSprite(335, 205);
  
-//   timedateDisplay.fillRect(0, 0, 240, 25, TFT_BLACK);
-//   timedateDisplay.drawString(F("January 29, 2024"), 120, 12, 2);
-//   timedateDisplay.drawRect(0, 0, 240, 25, TFT_RED);
-//   timedateDisplay.pushSprite(118, 285);
+  timedateDisplay.fillRect(0, 0, 214, 15, TFT_BLACK);
+  timedateDisplay.drawString(F(formatteddatetime), 107, 6, 2);
+  //timedateDisplay.drawRect(0, 0, 214, 15, TFT_RED);
+  timedateDisplay.pushSprite(132, 290);
 }
 
-// Create AsyncWebServer object on port 80
-#include <ESPAsyncWebServer.h>
-AsyncWebServer server(80);
-
-// Create an Event Source on /events
-#include <AsyncTCP.h>
-AsyncEventSource events("/events");
-
-// Json Variable to Hold Sensor Readings
-#include <Arduino_JSON.h>
-JSONVar readings;
-
-// Timer variables
-unsigned long lastTime = 0;
-unsigned long timerDelay = 2000;
-
-// Initialize SPIFFS
-#include "SPIFFS.h"
-void initSPIFFS() {
-  if (!SPIFFS.begin()) {
-    Serial.println("An error has occurred while mounting SPIFFS");
-  } else {
-    Serial.println("SPIFFS mounted successfully");
-  }
-}
-
-// ----------------------------------------------------------------- //
-// Replace with your network credentials
-const char* ssid = "Oreo Dog";
-const char* password = "Oreo20201029?";
-// ----------------------------------------------------------------- //
-
-// Initialize WiFi
-#include <WiFi.h>
-void initWiFi() {
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-  Serial.print("Connecting to WiFi ..");
-  while (WiFi.status() != WL_CONNECTED) {
-    Serial.print('.');
-    delay(1000);
-  }
-  Serial.println(WiFi.localIP());
-}
-
-String getSensorReadings(){
+String enviToJSON(){
   readings["pm1"] = String(pm1);
   readings["pm2_5"] =  String(pm2_5);
   readings["pm10"] = String(pm10);
@@ -387,8 +397,68 @@ String getSensorReadings(){
   return jsonString;
 }
 
+void initializeWebServer(){
+  // Web Server Root URL
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/index.html", "text/html");
+  });
+
+  server.serveStatic("/", SPIFFS, "/");
+
+  // Request for the latest sensor readings
+  server.on("/readings", HTTP_GET, [](AsyncWebServerRequest *request){
+    String json = enviToJSON();
+    request->send(200, "application/json", json);
+    json = String();
+  });
+
+  // Trigger esp32 to send patient sensor data to node server
+  server.on("/patientSensor", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("sensorSelect", true)) {
+      String sensorSelect = request->getParam("sensorSelect", true)->value();
+      if (sensorSelect == "MLX") {
+        digitalWrite(MAXespLEDPin, LOW);
+        Serial.println("MLX");
+        digitalWrite(MLXespLEDPin, HIGH);
+        request->send(200, "text/plain", "MLX selected");
+      } 
+      else if (sensorSelect == "MAX") {
+        digitalWrite(MLXespLEDPin, LOW);
+        Serial.println("MAX");
+        digitalWrite(MAXespLEDPin, HIGH);
+        request->send(200, "text/plain", "MAX selected");
+      } 
+      else {
+        digitalWrite(MLXespLEDPin, LOW);
+        digitalWrite(MAXespLEDPin, LOW);
+        request->send(400, "text/plain", "Invalid request");
+      }
+    } 
+    else {
+      request->send(400, "text/plain", "Missing parameter");
+    }
+  });
+
+  events.onConnect([](AsyncEventSourceClient *client){
+    if(client->lastId()){
+      Serial.printf("Client reconnected! Last message ID that it got is: %u\n", client->lastId());
+    }
+    // send event with message "hello!", id current millis
+    // and set reconnect delay to 1 second
+    client->send("hello!", NULL, millis(), 1000);       
+  });
+  server.addHandler(&events);
+
+  server.begin();
+}
+
+
+
 void setup(void) {
   Serial.begin(115200);
+  pinMode(MLXespLEDPin, OUTPUT);
+  pinMode(MAXespLEDPin, OUTPUT);
+
   Wire.end();             // TCA9548A
   Wire.begin();           // TCA9548A
   
@@ -424,41 +494,31 @@ void setup(void) {
   initializeTFTbackground();
   initializeSprites();
 
-
-  //------------------------------------------------------------------------------------------------//
-  // Initialize Wifi + Web server
+  // Connect Wifi
   initWiFi();
+  // Time configuration
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer1, ntpServer2);
+  // Initialize web files
   initSPIFFS();
-
-  // Web Server Root URL
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/index.html", "text/html");
-  });
-
-  server.serveStatic("/", SPIFFS, "/");
-
-  // Request for the latest sensor readings
-  server.on("/readings", HTTP_GET, [](AsyncWebServerRequest *request){
-    String json = getSensorReadings();
-    request->send(200, "application/json", json);
-    json = String();
-  });
-
-  events.onConnect([](AsyncEventSourceClient *client){
-    if(client->lastId()){
-      Serial.printf("Client reconnected! Last message ID that it got is: %u\n", client->lastId());
-    }
-    // send event with message "hello!", id current millis
-    // and set reconnect delay to 1 second
-    client->send("hello!", NULL, millis(), 1000);       
-  });
-  server.addHandler(&events);
-
-  // Start server
-  server.begin();
+  // Setup and start web server
+  initializeWebServer();
 }
 
+
 void loop() {
+  // Update time
+  if (!getLocalTime(&timeinfo)) {
+    Serial.println("Failed to obtain time");
+    char formatteddatetime[64] = "";
+  } 
+  else {
+    // Format the time into the formatteddatetimefer
+    strftime(formatteddatetime, sizeof(formatteddatetime), "%a, %B %d, %Y %I:%M%p", &timeinfo);
+  }
+  Serial.println(formatteddatetime);
+  
+  
+  // Get sensor data
   humidity = DHT22Sensor.readHumidity();
   temperature = DHT22Sensor.readTemperature();
   air_quality = MQ135Sensor.getCorrectedPPM(temperature, humidity);
@@ -492,9 +552,24 @@ void loop() {
   if ((millis() - lastTime) > timerDelay) {
     // Send Events to the client with the Sensor Readings Every 10 seconds
     events.send("ping",NULL,millis());
-    events.send(getSensorReadings().c_str(),"new_readings" ,millis());
+    events.send(enviToJSON().c_str(),"new_readings" ,millis());
     lastTime = millis();
   }
+  HTTPClient http;
+  http.begin(roomSensorServer);
+  http.addHeader("Content-Type", "application/json");
+  int httpResponseCode = http.POST("{\"temp\":" + String(temperature) +
+                                    ",\"humidity\":" + String(humidity) +
+                                    ",\"co2\":" + String(air_quality) +
+                                    ",\"pm1\":" + String(pm1) +
+                                    ",\"pm2_5\":" + String(pm2_5) +
+                                    ",\"pm10\":" + String(pm10) + "}");
+
+  Serial.print("HTTP Response code: ");
+  Serial.println(httpResponseCode);
+
+  http.end();
+  
 
   Serial.println("[APP] Free memory: " + String(esp_get_free_heap_size()) + " bytes");
   Serial.println("==========================");
