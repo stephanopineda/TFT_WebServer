@@ -14,34 +14,36 @@
   <div class="container">
     <div class="sensor-section">
       <i class="fas fa-thermometer-half icon"></i>
-      <p>Temperature: <span id="dhttemp"></span>°Celsius</p>
-    </div>
-
-    <div class="sensor-section">
-      <i class="fas fa-wind icon"></i>
-      <p>Air Quality: <span id="air_quality"></span>PPM</p>
-    </div>
-
-    <div class="sensor-section">
-      <i class="fas fa-tint icon"></i>
-      <p>Humidity: <span id="humidity"></span>%</p>
-    </div>
-
-    <div class="sensor-section">
-      <i class="fas fa-cloud icon"></i>
-      <p>PM1: <span id="pm1"></span>µg/m3</p>
+      <p>Temperature: <span id="temperature"></span><span>°C</span></p>
     </div>
 
     <div class="sensor-section">
       <i class="fas fa-smog icon"></i>
-      <p>PM2.5: <span id="pm2_5"></span>µg/m3</p>
+      <p>Air Quality: <span id="air_quality"></span><span>PPM</span></p>
     </div>
 
     <div class="sensor-section">
-      <i class="fas fa-sun icon"></i>
-      <p>PM10: <span id="pm10"></span>µg/m3</p>
+      <i class="fas fa-tint icon"></i>
+      <p>Humidity: <span id="humidity"></span><span>%</span></p>
+    </div>
+
+    <div class="sensor-section">
+      <i class="fas fa-wind icon"></i>
+      <p>PM1: <span id="pm1"></span><span>µg/m3</span></p>
+    </div>
+
+    <div class="sensor-section">
+      <i class="fas fa-wind icon"></i>
+      <p>PM2.5: <span id="pm2_5"></span><span>µg/m3</span></p>
+    </div>
+
+    <div class="sensor-section">
+      <i class="fas fa-wind icon"></i>
+      <p>PM10: <span id="pm10"></span><span>µg/m3</span></p>
     </div>
   </div>
+
+  <button id="showChartsButton" onclick="showCharts()">Show Charts</button>
 
   <script src="script.js"></script>
 </body>

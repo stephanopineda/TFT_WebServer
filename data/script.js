@@ -12,7 +12,7 @@ function getReadings(){
       var pm2_5 = myObj.pm2_5;
       var pm10 = myObj.pm10;
       var air_quality = myObj.air_quality;
-      var dhttemp = myObj.dhttemp;
+      var temperature = myObj.temperature;
       var humidity = myObj.humidity;
 
       // Display variables in the HTML
@@ -20,7 +20,7 @@ function getReadings(){
       document.getElementById('pm2_5').innerText = myObj.pm2_5;
       document.getElementById('pm10').innerText = myObj.pm10;
       document.getElementById('air_quality').innerText = myObj.air_quality;
-      document.getElementById('dhttemp').innerText = myObj.dhttemp;
+      document.getElementById('temperature').innerText = myObj.temperature;
       document.getElementById('humidity').innerText = myObj.humidity;
     }
   }; 
@@ -55,7 +55,32 @@ if (!!window.EventSource) {
     document.getElementById('pm2_5').innerText = myObj.pm2_5;
     document.getElementById('pm10').innerText = myObj.pm10;
     document.getElementById('air_quality').innerText = myObj.air_quality;
-    document.getElementById('dhttemp').innerText = myObj.dhttemp;
+    document.getElementById('temperature').innerText = myObj.temperature;
     document.getElementById('humidity').innerText = myObj.humidity;
   }, false);
 }
+
+function showCharts() {
+  // Create an iframe element to embed the new webpage
+  var iframe = document.createElement('iframe');
+  iframe.src = 'C:\Users\felya\Documents\Arduino\WebServer\data\graphs.html'; // Update the path accordingly
+  iframe.style.width = '100%';
+  iframe.style.height = '600px'; // Set an appropriate height
+
+  // Append the iframe to the body or any other container element
+  document.body.appendChild(iframe);
+}
+
+function showCharts() {
+  // Navigate to the charts page
+  window.location.href = 'graphs.html';
+}
+
+
+function showCharts() {
+  // Navigate to the charts page
+  window.location.href = 'graphs.html';
+}
+
+// Add event listener to the button
+document.getElementById('showChartsButton').addEventListener('click', showCharts);
