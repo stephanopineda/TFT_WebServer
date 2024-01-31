@@ -12,7 +12,7 @@ function getReadings(){
       var pm2_5 = myObj.pm2_5;
       var pm10 = myObj.pm10;
       var air_quality = myObj.air_quality;
-      var temperature = myObj.temperature;
+      var dhttemp = myObj.dhttemp;
       var humidity = myObj.humidity;
 
       // Display variables in the HTML
@@ -20,7 +20,7 @@ function getReadings(){
       document.getElementById('pm2_5').innerText = myObj.pm2_5;
       document.getElementById('pm10').innerText = myObj.pm10;
       document.getElementById('air_quality').innerText = myObj.air_quality;
-      document.getElementById('temperature').innerText = myObj.temperature;
+      document.getElementById('dhttemp').innerText = myObj.dhttemp;
       document.getElementById('humidity').innerText = myObj.humidity;
     }
   }; 
@@ -55,7 +55,7 @@ if (!!window.EventSource) {
     document.getElementById('pm2_5').innerText = myObj.pm2_5;
     document.getElementById('pm10').innerText = myObj.pm10;
     document.getElementById('air_quality').innerText = myObj.air_quality;
-    document.getElementById('temperature').innerText = myObj.temperature;
+    document.getElementById('dhttemp').innerText = myObj.dhttemp;
     document.getElementById('humidity').innerText = myObj.humidity;
   }, false);
 }

@@ -105,7 +105,7 @@ function updateChart(chart, newData) {
   ppmChart.data.datasets[0].data = ppmData.data;
   
   function updateChartsWithData(myObj) {
-    updateChart(temperatureChart, myObj.temperature);
+    updateChart(temperatureChart, myObj.dhttemp);
     updateChart(humidityChart, myObj.humidity);
     updateChart(pm25Chart, myObj.pm2_5);
     updateChart(pm1Chart, myObj.pm1);
