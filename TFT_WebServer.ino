@@ -13,6 +13,9 @@ const char* mlxSensorServer = "http://192.168.1.3:3000/recordMLX";
 const char* maxSensorServer = "http://192.168.1.3:3000/recordMAX";
 bool maxActive = false;
 bool mlxActive = false;
+bool initScreen = false;
+bool initMLXScreen = true;
+bool initMAXScreen = true;
 
 // Time configuration
 #include "time.h"
@@ -34,6 +37,10 @@ TFT_eSprite pm1Display = TFT_eSprite(&tft);
 TFT_eSprite pm2_5Display = TFT_eSprite(&tft);
 TFT_eSprite pm10Display = TFT_eSprite(&tft);
 TFT_eSprite timedateDisplay = TFT_eSprite(&tft);
+TFT_eSprite bodyTempDisplay = TFT_eSprite(&tft);
+TFT_eSprite heartRateDisplay = TFT_eSprite(&tft);
+TFT_eSprite spo2Display = TFT_eSprite(&tft);
+
 
 // TCA9548A Multiplexer
 #include <Wire.h>
@@ -113,6 +120,7 @@ void initSPIFFS() {
 
 // Initialize WiFi
 #include <WiFi.h>
+#include <HTTPClient.h>
 void initWiFi() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
@@ -126,20 +134,48 @@ void initWiFi() {
   Serial.println(WiFi.localIP());
 }
 
-#include <HTTPClient.h>
-
-
-void initializeTFTbackground(void){
+void initializeTFTheader(void){
   // Draw header
+  tft.init();
+  tft.setRotation(1);    
+  tft.fillScreen(TFT_BLACK);                    // Screen background
   tft.setTextDatum(MC_DATUM);                   // Set text reference coordinates to middle center
   tft.setFreeFont(FSS9);                        // Fonts for header
   tft.setTextColor(TFT_MAGENTA);
   tft.drawString("VITAL SIGNS AND AIR QUALITY MONITORING", 240, 20, GFXFF);
   tft.drawString("PALTOC HEALTH CENTER - SAMPALOC, MANILA", 240, 40, 2);
+  if (mlxActive == true){
+    tft.drawCircle(240, 180, 130, TFT_CYAN); 
+    tft.setFreeFont(FSSB9); 
+    tft.setTextColor(TFT_WHITE);
+    tft.drawString("TEMPERATURE (  C)", 240, 120, GFXFF);
+    tft.drawCircle(307, 118, 3, TFT_WHITE); 
+  }
+  else if (maxActive == true){
+    tft.drawRect(0, 60, 480, 110, TFT_CYAN);
+    tft.drawRect(0, 171, 480, 110, TFT_GREEN);
+    
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(TFT_BLACK);
+    tft.setFreeFont(FSSB9); 
+    tft.fillRect(375, 60, 50, 30, TFT_CYAN);
+    tft.drawString("BPM", 400, 74, GFXFF);
+    tft.fillRect(375, 171, 50, 30, TFT_GREEN);
+    tft.drawString("%", 400, 185, GFXFF);
 
-  tft.setTextColor(0x077F);
+    tft.setTextDatum(MR_DATUM);
+    tft.setFreeFont(FSSB9); 
+    tft.setTextColor(TFT_WHITE);
+    tft.drawString("Heart Rate", 165, 110, GFXFF);
+    tft.drawString("Blood Oxygen", 165, 210, GFXFF);  
+    tft.drawString("Saturation", 165, 230, GFXFF);  
 
+  }
+}
+
+void initializeTFTbackground(void){
   // Draw sensors borders
+  tft.setTextColor(0x077F);
   tft.setTextDatum(TL_DATUM);                   // Set text reference coordinates to top left
  
   tft.drawRect(0, 60, 159, 110, 0x077F);     // Top left border
@@ -168,7 +204,7 @@ void initializeTFTbackground(void){
   tft.drawString("ug/m3", 420, 224, 2);         // Unit label
 }
 
-void initializeSprites(void){
+void initializeEnviSprites(void){
   // Max Sprite Size (1 only)
   // Max    = (263, 218) = 57334 px
   // Height = (179, 320) = 57280 px
@@ -200,6 +236,19 @@ void initializeSprites(void){
 
   timedateDisplay.createSprite(214, 15);
   timedateDisplay.setTextDatum(MC_DATUM);
+}
+
+void updateTFTFooter(void){
+  timedateDisplay.fillRect(0, 0, 214, 15, TFT_BLACK);
+  timedateDisplay.drawString(F(formatteddatetime), 107, 6, 2);
+  //timedateDisplay.drawRect(0, 0, 214, 15, TFT_RED);
+  if(mlxActive == true){
+    timedateDisplay.pushSprite(134, 230);
+  }
+  else{
+    timedateDisplay.pushSprite(134, 290);
+  }
+  
 }
 
 void getPMSdata(void) {
@@ -250,6 +299,7 @@ void getPMSdata(void) {
 }
 
 void getMAXdata(void) {
+
   MAXSensor.heartrateAndOxygenSaturation(/**SPO2=*/&SPO2, /**SPO2Valid=*/&SPO2Valid, /**heartRate=*/&heartRate, /**heartRateValid=*/&heartRateValid);
 
   // For average heartrate
@@ -333,7 +383,7 @@ void getMLXdata(void) {
   Serial.print("Object celsius : ");  Serial.print(fingerTemp);  Serial.println(" °C");
 }
 
-void updateTFTdata(void){
+void updateTFTenvi(void){
   tempRoomDisplay.setTextColor(TFT_GREEN);
   tempRoomDisplay.fillRect(0, 0, 117, 38, TFT_BLACK); // clear display
   tempRoomDisplay.drawString(String(temperature), 115, 0, GFXFF);
@@ -380,10 +430,7 @@ void updateTFTdata(void){
   //pm10Display.drawRect(0, 0, 78, 38, TFT_RED);
   pm10Display.pushSprite(335, 205);
  
-  timedateDisplay.fillRect(0, 0, 214, 15, TFT_BLACK);
-  timedateDisplay.drawString(F(formatteddatetime), 107, 6, 2);
-  //timedateDisplay.drawRect(0, 0, 214, 15, TFT_RED);
-  timedateDisplay.pushSprite(132, 290);
+  updateTFTFooter();
 }
 
 String enviToJSON(){
@@ -420,6 +467,7 @@ void initializeWebServer(){
     if (request->hasParam("sensorSelect", true)) {
       String sensorSelect = request->getParam("sensorSelect", true)->value();
       if (sensorSelect == "MLX") {
+        maxActive = false;
         digitalWrite(MAXespLEDPin, LOW);
         Serial.println("MLX");
         mlxActive = true;
@@ -428,6 +476,7 @@ void initializeWebServer(){
 
       } 
       else if (sensorSelect == "MAX") {
+        mlxActive = false;
         digitalWrite(MLXespLEDPin, LOW);
         Serial.println("MAX");
         maxActive = true;
@@ -460,15 +509,52 @@ void initializeWebServer(){
   server.begin();
 }
 
+void initializePatientSprites(){
+    bodyTempDisplay.createSprite(245, 75);
+    bodyTempDisplay.setTextDatum(TL_DATUM);
+    bodyTempDisplay.setTextColor(TFT_CYAN);
 
+    heartRateDisplay.createSprite(160, 75);
+    heartRateDisplay.setTextDatum(TL_DATUM);
+
+    spo2Display.createSprite(160, 75);
+    spo2Display.setTextDatum(TL_DATUM);
+  
+}
+
+void updatePatientSprites(){
+  if (mlxActive == true) {
+    bodyTempDisplay.fillRect(0, 0, 245, 75, TFT_BLACK);
+    bodyTempDisplay.drawString(String(fingerTemp), 0, 0, 8);
+    //bodyTempDisplay.drawRect(0, 0, 245, 75, TFT_RED);
+    bodyTempDisplay.pushSprite(118, 139);
+  }
+  else if (maxActive == true) {
+    heartRateDisplay.setTextColor(TFT_CYAN);
+    heartRateDisplay.fillRect(0, 0, 160, 75, TFT_BLACK);
+    heartRateDisplay.setTextDatum(MC_DATUM);
+    heartRateDisplay.drawString(String(beatAvg), 80, 37, 8);
+    //heartRateDisplay.drawRect(0, 0, 160, 75, TFT_RED);
+    heartRateDisplay.pushSprite(185, 75);
+
+    spo2Display.setTextColor(TFT_GREEN);
+    spo2Display.fillRect(0, 0, 160, 75, TFT_BLACK);
+    spo2Display.setTextDatum(MC_DATUM);
+    spo2Display.drawString(String(averageSpo2), 80, 37, 8);
+    //spo2Display.drawRect(0, 0, 160, 75, TFT_RED);
+    spo2Display.pushSprite(185, 185);
+  }
+}
 
 void setup(void) {
   Serial.begin(115200);
+  // Set MLX and MAX LED pins
   pinMode(MLXespLEDPin, OUTPUT);
   pinMode(MAXespLEDPin, OUTPUT);
-
-  Wire.end();             // TCA9548A
-  Wire.begin();           // TCA9548A
+  
+  // TCA9548A
+  Wire.end();             
+  Wire.begin();
   
   // PMS7003
   TCA9548A(TCAPMSAddress);
@@ -485,22 +571,22 @@ void setup(void) {
     MLXSensor.enterSleepMode(false);
     delay(200);
 
-  //  TCA9548A(TCAMAXAddress);
-  //    while (!MAXSensor.begin()) {
-  //      Serial.println("MAX30102 not detected.");
-  //      delay(1000);
-  //    }
+  // MAX30102
+  TCA9548A(TCAMAXAddress);
+    if(MAXSensor.begin()){
+      MAXSensor.sensorConfiguration(/*ledBrightness=*/50, /*sampleAverage=*/SAMPLEAVG_4, \
+          /*ledMode=*/MODE_MULTILED, /*sampleRate=*/SAMPLERATE_100, \
+          /*pulseWidth=*/PULSEWIDTH_411, /*adcRange=*/ADCRANGE_16384);
+    }
+    else{
+      Serial.println("MAX30102 not detected.");
+    }
   
-  //    MAXSensor.sensorConfiguration(/*ledBrightness=*/50, /*sampleAverage=*/SAMPLEAVG_4, \
-  //        /*ledMode=*/MODE_MULTILED, /*sampleRate=*/SAMPLERATE_100, \
-  //        /*pulseWidth=*/PULSEWIDTH_411, /*adcRange=*/ADCRANGE_16384);
-
   // TFT LCD
-  tft.init();
-  tft.setRotation(1);                           // Rotates screen by 1 counter clockwise
-  tft.fillScreen(TFT_BLACK);                    // Screen background
+  initializeTFTheader();
   initializeTFTbackground();
-  initializeSprites();
+  initializeEnviSprites();
+  initializePatientSprites();
 
   // Connect Wifi
   initWiFi();
@@ -510,22 +596,35 @@ void setup(void) {
   initSPIFFS();
   // Setup and start web server
   initializeWebServer();
+  updateTFTFooter();
+  
 }
 
 
 void loop() {
-  // Update time
+  // Return formatted time and date if connection to NTP server is successful
   if (!getLocalTime(&timeinfo)) {
     Serial.println("Failed to obtain time");
     char formatteddatetime[64] = "";
   } 
   else {
-    // Format the time into the formatteddatetimefer
     strftime(formatteddatetime, sizeof(formatteddatetime), "%a, %B %d, %Y %I:%M%p", &timeinfo);
   }
   Serial.println(formatteddatetime);
   
+
+  
+  // Start MAX30102 based on ESP32 trigger
   if (maxActive == true){
+    if(initMAXScreen == true){
+      initializeTFTheader();
+      updateTFTFooter();
+      
+      initMAXScreen = false;
+      initMLXScreen = true;
+      initScreen = true;
+    }
+
     TCA9548A(TCAMAXAddress);
     while(!Serial);
     if (MAXSensor.begin()) {
@@ -533,9 +632,12 @@ void loop() {
       MAXSensor.sensorConfiguration(/*ledBrightness=*/50, /*sampleAverage=*/SAMPLEAVG_4, \
           /*ledMode=*/MODE_MULTILED, /*sampleRate=*/SAMPLERATE_100, \
           /*pulseWidth=*/PULSEWIDTH_411, /*adcRange=*/ADCRANGE_16384);
+
       TCA9548A(TCAMAXAddress);
       while(!Serial);
       getMAXdata();
+      updatePatientSprites();
+
       HTTPClient http;
       http.begin(maxSensorServer);
       http.addHeader("Content-Type", "application/json");
@@ -551,9 +653,21 @@ void loop() {
       Serial.println("MAX30102 not detected.");
     }
   } 
+
+  // Start MLX90614 based on ESP32 trigger
   else if (mlxActive == true)
   {
+    if(initMLXScreen == true){
+      initializeTFTheader();
+      updateTFTFooter();
+      
+      initMLXScreen = false;
+      initMAXScreen = true;
+      initScreen = true;
+    }
+    
     getMLXdata();
+    updatePatientSprites();
     HTTPClient http;
     http.begin(mlxSensorServer);
     http.addHeader("Content-Type", "application/json");
@@ -564,13 +678,23 @@ void loop() {
 
     http.end();
   }
-  else{
+
+  // Start environmental sensors if there is no trigger
+  else {
+    if (initScreen == true){
+      initializeTFTheader();
+      initializeTFTbackground();
+      initializeEnviSprites();
+      updateTFTFooter();
+      initScreen = false;
+      initMLXScreen = true;
+      initMAXScreen = true;
+    }
+
     humidity = DHT22Sensor.readHumidity();
     temperature = DHT22Sensor.readTemperature();
     air_quality = MQ135Sensor.getCorrectedPPM(temperature, humidity);
-    
-    
-    
+
     getPMSdata();
 
     Serial.print("Temperature: ");
@@ -582,8 +706,9 @@ void loop() {
     Serial.print("PPM: ");
     Serial.println(air_quality);
 
-    updateTFTdata();
+    updateTFTenvi();
 
+    // Update ESP32 webpage
     if ((millis() - lastTime) > timerDelay) {
       // Send Events to the client with the Sensor Readings Every 10 seconds
       events.send("ping",NULL,millis());
@@ -591,6 +716,7 @@ void loop() {
       lastTime = millis();
     }
     
+    // Save environmental data to the server
     HTTPClient http;
     http.begin(roomSensorServer);
     http.addHeader("Content-Type", "application/json");
@@ -609,4 +735,5 @@ void loop() {
   
   Serial.println("[APP] Free memory: " + String(esp_get_free_heap_size()) + " bytes");
   Serial.println("==========================");
+  
 }
