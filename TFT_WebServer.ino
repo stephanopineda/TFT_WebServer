@@ -9,6 +9,10 @@ static const byte MAXespLEDPin = 18;
 const char* ssid = "Oreo Dog";
 const char* password = "Oreo20201029?";
 const char* roomSensorServer = "http://192.168.1.3:3000/room_sensor";
+const char* mlxSensorServer = "http://192.168.1.3:3000/recordMLX";
+const char* maxSensorServer = "http://192.168.1.3:3000/recordMAX";
+bool maxActive = false;
+bool mlxActive = false;
 
 // Time configuration
 #include "time.h"
@@ -199,7 +203,8 @@ void initializeSprites(void){
 }
 
 void getPMSdata(void) {
-  TCA9548A(TCAPMSAddress);
+  TCA9548A(4);
+  while(!Serial);
   int index = 0;
   char value;
   char previousValue;
@@ -245,8 +250,6 @@ void getPMSdata(void) {
 }
 
 void getMAXdata(void) {
-  TCA9548A(TCAMAXAddress);
-
   MAXSensor.heartrateAndOxygenSaturation(/**SPO2=*/&SPO2, /**SPO2Valid=*/&SPO2Valid, /**heartRate=*/&heartRate, /**heartRateValid=*/&heartRateValid);
 
   // For average heartrate
@@ -419,18 +422,23 @@ void initializeWebServer(){
       if (sensorSelect == "MLX") {
         digitalWrite(MAXespLEDPin, LOW);
         Serial.println("MLX");
+        mlxActive = true;
         digitalWrite(MLXespLEDPin, HIGH);
         request->send(200, "text/plain", "MLX selected");
+
       } 
       else if (sensorSelect == "MAX") {
         digitalWrite(MLXespLEDPin, LOW);
         Serial.println("MAX");
+        maxActive = true;
         digitalWrite(MAXespLEDPin, HIGH);
         request->send(200, "text/plain", "MAX selected");
       } 
       else {
         digitalWrite(MLXespLEDPin, LOW);
         digitalWrite(MAXespLEDPin, LOW);
+        mlxActive = false;
+        maxActive = false;
         request->send(400, "text/plain", "Invalid request");
       }
     } 
@@ -517,60 +525,88 @@ void loop() {
   }
   Serial.println(formatteddatetime);
   
+  if (maxActive == true){
+    TCA9548A(TCAMAXAddress);
+    while(!Serial);
+    if (MAXSensor.begin()) {
+      Serial.println("MAX30102 Detected.");
+      MAXSensor.sensorConfiguration(/*ledBrightness=*/50, /*sampleAverage=*/SAMPLEAVG_4, \
+          /*ledMode=*/MODE_MULTILED, /*sampleRate=*/SAMPLERATE_100, \
+          /*pulseWidth=*/PULSEWIDTH_411, /*adcRange=*/ADCRANGE_16384);
+      TCA9548A(TCAMAXAddress);
+      while(!Serial);
+      getMAXdata();
+      HTTPClient http;
+      http.begin(maxSensorServer);
+      http.addHeader("Content-Type", "application/json");
+      int httpResponseCode = http.POST("{\"heartrate\":" + String(beatAvg) +
+                                            ",\"spo2\":" + String(averageSpo2) + "}");
+
+      Serial.print("HTTP Response code: ");
+      Serial.println(httpResponseCode);
+
+      http.end();
+    }
+    else {
+      Serial.println("MAX30102 not detected.");
+    }
+  } 
+  else if (mlxActive == true)
+  {
+    getMLXdata();
+    HTTPClient http;
+    http.begin(mlxSensorServer);
+    http.addHeader("Content-Type", "application/json");
+    int httpResponseCode = http.POST("{\"bodytemp\":" + String(fingerTemp) + "}");
+
+    Serial.print("HTTP Response code: ");
+    Serial.println(httpResponseCode);
+
+    http.end();
+  }
+  else{
+    humidity = DHT22Sensor.readHumidity();
+    temperature = DHT22Sensor.readTemperature();
+    air_quality = MQ135Sensor.getCorrectedPPM(temperature, humidity);
+    
+    
+    
+    getPMSdata();
+
+    Serial.print("Temperature: ");
+    Serial.println(temperature);
+
+    Serial.print("Humidity: ");
+    Serial.println(humidity);
+
+    Serial.print("PPM: ");
+    Serial.println(air_quality);
+
+    updateTFTdata();
+
+    if ((millis() - lastTime) > timerDelay) {
+      // Send Events to the client with the Sensor Readings Every 10 seconds
+      events.send("ping",NULL,millis());
+      events.send(enviToJSON().c_str(),"new_readings" ,millis());
+      lastTime = millis();
+    }
+    
+    HTTPClient http;
+    http.begin(roomSensorServer);
+    http.addHeader("Content-Type", "application/json");
+    int httpResponseCode = http.POST("{\"temp\":" + String(temperature) +
+                                      ",\"humidity\":" + String(humidity) +
+                                      ",\"co2\":" + String(air_quality) +
+                                      ",\"pm1\":" + String(pm1) +
+                                      ",\"pm2_5\":" + String(pm2_5) +
+                                      ",\"pm10\":" + String(pm10) + "}");
+
+    Serial.print("HTTP Response code: ");
+    Serial.println(httpResponseCode);
+
+    http.end();
+  }
   
-  // Get sensor data
-  humidity = DHT22Sensor.readHumidity();
-  temperature = DHT22Sensor.readTemperature();
-  air_quality = MQ135Sensor.getCorrectedPPM(temperature, humidity);
-
-  TCA9548A(TCAMAXAddress);
-  if (MAXSensor.begin()) {
-    Serial.println("MAX30102 Detected.");
-    MAXSensor.sensorConfiguration(/*ledBrightness=*/50, /*sampleAverage=*/SAMPLEAVG_4, \
-        /*ledMode=*/MODE_MULTILED, /*sampleRate=*/SAMPLERATE_100, \
-        /*pulseWidth=*/PULSEWIDTH_411, /*adcRange=*/ADCRANGE_16384);
-  getMAXdata();
-  }
-  else {
-    Serial.println("MAX30102 not detected.");
-  }
-
-  getMLXdata();
-  getPMSdata();
-
-  Serial.print("Temperature: ");
-  Serial.println(temperature);
-
-  Serial.print("Humidity: ");
-  Serial.println(humidity);
-
-  Serial.print("PPM: ");
-  Serial.println(air_quality);
-
-  updateTFTdata();
-
-  if ((millis() - lastTime) > timerDelay) {
-    // Send Events to the client with the Sensor Readings Every 10 seconds
-    events.send("ping",NULL,millis());
-    events.send(enviToJSON().c_str(),"new_readings" ,millis());
-    lastTime = millis();
-  }
-  HTTPClient http;
-  http.begin(roomSensorServer);
-  http.addHeader("Content-Type", "application/json");
-  int httpResponseCode = http.POST("{\"temp\":" + String(temperature) +
-                                    ",\"humidity\":" + String(humidity) +
-                                    ",\"co2\":" + String(air_quality) +
-                                    ",\"pm1\":" + String(pm1) +
-                                    ",\"pm2_5\":" + String(pm2_5) +
-                                    ",\"pm10\":" + String(pm10) + "}");
-
-  Serial.print("HTTP Response code: ");
-  Serial.println(httpResponseCode);
-
-  http.end();
-  
-
   Serial.println("[APP] Free memory: " + String(esp_get_free_heap_size()) + " bytes");
   Serial.println("==========================");
 }
