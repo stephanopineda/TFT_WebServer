@@ -63,7 +63,7 @@ if (!!window.EventSource) {
 function showCharts() {
   // Create an iframe element to embed the new webpage
   var iframe = document.createElement('iframe');
-  iframe.src = 'C:\Users\felya\Documents\Arduino\WebServer\data\graphs.html'; // Update the path accordingly
+  iframe.src = 'Documents\Arduino\WebServer\data\graphs-dashboard.html'; // Update the path accordingly
   iframe.style.width = '100%';
   iframe.style.height = '600px'; // Set an appropriate height
 
@@ -73,13 +73,13 @@ function showCharts() {
 
 function showCharts() {
   // Navigate to the charts page
-  window.location.href = 'graphs.html';
+  window.location.href = 'graphs-dashboard.html';
 }
 
 
 function showCharts() {
   // Navigate to the charts page
-  window.location.href = 'graphs.html';
+  window.location.href = 'graphs-dashboard.html';
 }
 
 // Add event listener to the button
